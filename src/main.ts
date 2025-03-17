@@ -13,6 +13,7 @@ const config = {
   COLLATERAL_TOKEN: "0x",
   COLLATERAL_AMOUNT: "10000000000",
   BORROWED_TOKEN: "0x",
+  BORROWED_AMOUNT: "10000000000",
 }
 
 async function main() {
@@ -39,7 +40,7 @@ async function main() {
       flashloan: {
         lender: config.AAVE_POOL_ADDRESS,
         token: config.BORROWED_TOKEN,
-        amount: config.COLLATERAL_AMOUNT
+        amount: config.BORROWED_AMOUNT
       }
     },
     hooks: {
@@ -71,8 +72,10 @@ async function main() {
     appCode: config.APP_CODE,
   });
 
+
   // Define trade parameters
   const parameters: TradeParameters = {
+    // @ts-ignore
     env: 'staging',
     kind: OrderKind.BUY,
     sellToken: config.COLLATERAL_TOKEN,
@@ -87,19 +90,40 @@ async function main() {
 
   console.log({parameters});
 
-  const swapSettings = {
-    appData,
+  const quote = await sdk.getQuote(parameters, {
     quoteRequest: {
-      signingScheme: SigningScheme.EIP1271
-    }
-  };
-
-  console.log({parameters});
-
-  // https://github.com/cowprotocol/app-data/issues/77
-  // @ts-ignore
-  const orderId =  await sdk.postSwapOrder(parameters, swapSettings);
+      from: config.SAFE_ADDRESS,
+      signingScheme: SigningScheme.PRESIGN,      
+    },
+  });
+  console.log({results: quote.quoteResults});
+  
+  const orderId = await quote.postSwapOrderFromQuote();
   console.log('Order created, id: ', orderId);
+
+  const preSignTransaction = await sdk.getPreSignTransaction({
+    orderId,
+    account: config.SAFE_ADDRESS,
+  });
+  console.log(
+    `Pre-sign unsigned transaction: ${JSON.stringify(
+      preSignTransaction,
+      null,
+      2
+    )}`
+  );
+
+  const safeTransactionData: SafeTransactionDataPartial = {
+    to: preSignTransaction.to,
+    value: preSignTransaction.value,
+    data: preSignTransaction.data,
+    operation: OperationType.Call
+  }
+  const safeTransaction = await safe.createTransaction({ transactions: [safeTransactionData] });
+  const signedSafeTransaction = await safe.signTransaction(safeTransaction, SigningMethod.ETH_SIGN);
+  const transactionResult = await safe.executeTransaction(signedSafeTransaction);
+
+  console.log({transactionResult});
 }
 
 async function build_repay_transaction(config: any, safe: Safe): Promise<string> {
@@ -143,7 +167,7 @@ async function build_repay_transaction(config: any, safe: Safe): Promise<string>
     functionName: 'repay',
     args: [
       config.BORROWED_TOKEN,
-      config.COLLATERAL_AMOUNT,
+      config.BORROWED_TOKEN,
       // interest_rate_mode
       2,
       // on_behalf_of
