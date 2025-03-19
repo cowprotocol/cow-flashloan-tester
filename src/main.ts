@@ -15,7 +15,7 @@ async function main() {
   const {safe, nonce} = await setupSafe();
 
   console.log('\nBuilding order appData')
-  const appData = buildAppData(safe, nonce);
+  const appData = await buildAppData(safe, nonce);
   
   // Setup CoW SDK
   const sdk = new TradingSdk({
@@ -42,32 +42,33 @@ async function main() {
     receiver: config.COW_SETTLEMENT_CONTRACT,
   }
 
-  console.log('\nGetting a quote for the order')
+  console.log('\nGetting a quote for the trade')
   const quote = await sdk.getQuote(parameters, {
     quoteRequest: {
       from: config.SAFE_ADDRESS,
       signingScheme: SigningScheme.PRESIGN,      
     },
   });
+  console.log({quote: quote.quoteResults.amountsAndCosts});
 
   console.log('\nPublishing the order')
   const advancedParameters: SwapAdvancedSettings = {
     quoteRequest: {
-      // Specify the signing scheme
       signingScheme: SigningScheme.PRESIGN,
     },
     // @ts-ignore
     appData,
   }
+
   const orderId = await sdk.postSwapOrder(parameters, advancedParameters);
   console.log('    - Order created, id: ', orderId);
 
   console.log('\nSigning the order')
   console.log('The signing must be done manually from the Safe UI:')
   console.log('   - "New Transaction" -> "Transaction Builder"')
-  console.log('   - Enter the COW_SETTLEMENT_CONTRACT address')
+  console.log('   - Enter the COW_SETTLEMENT_CONTRACT address: ', config.COW_SETTLEMENT_CONTRACT,)
   console.log('   - Select the "setPresignature" method')
-  console.log('   - Put the order uid')
+  console.log('   - Put the order uid: ', orderId)
   console.log('   - Execute with 100k gas limit. Execution on sepolia is flaky (404 errors), must retry a few times')
   // FIXME: Ideally we want the signing to be automated with the "signOrder" function below,
   // but sepolia returns Status: 429, {"code":-32005,"message":"rate limit exceeded"}
@@ -89,13 +90,16 @@ async function setupSafe() {
   })
   const nonceString = await apiKit.getNextNonce(config.SAFE_ADDRESS as string);
   const nonce = parseInt(nonceString);
+  console.log('    - Current safe nonce: ', nonce);
 
   return {safe, nonce}
 }
 
 async function buildAppData(safe: Safe, nonce: number) {
   // we need to put the nonce in the future to account for the order presign transaction
+  console.log('    - Using nonce ', nonce + 1, ' for the repay pre-hook');
   const repayTx = await buildRepayTransaction(safe, nonce + 1);
+  console.log('    - Using nonce ', nonce + 2, ' for the withdraw pre-hook');
   const withdrawTx = await buildWithdrawTransaction(safe, nonce + 2);
 
   // TODO: use app-data sdk when flashloans are supported
