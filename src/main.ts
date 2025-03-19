@@ -1,4 +1,5 @@
 import Safe, { SigningMethod } from '@safe-global/protocol-kit'
+import SafeApiKit from '@safe-global/api-kit'
 import { OperationType, SafeTransactionDataPartial } from '@safe-global/types-kit'
 import { encodeFunctionData } from 'viem'
 import { SupportedChainId, OrderKind, TradeParameters, TradingSdk, SwapAdvancedSettings, SigningScheme } from '@cowprotocol/cow-sdk'
@@ -17,6 +18,12 @@ async function main() {
     signer: config.SIGNER_ADDRESS_PRIVATE_KEY,
     safeAddress: config.SAFE_ADDRESS,
   })
+
+  // Get the next Safe nonce
+  const apiKit = new SafeApiKit({
+    chainId: BigInt(config.CHAIN_ID as string)
+  })
+  config.NONCE = await apiKit.getNextNonce(config.SAFE_ADDRESS as string);
 
   console.log('Creating transaction with Safe:')
   console.log(' - Address: ', await safe.getAddress())
@@ -168,7 +175,7 @@ async function build_repay_transaction(config: any, safe: Safe): Promise<string>
     data: repayTxData,
     operation: OperationType.Call,
     // we need to put the nonce in the future to account for the order presign transaction
-    nonce: config.NONCE + 1,
+    nonce: parseInt(config.NONCE) + 1,
   }
 
   const safeTransaction = await safe.createTransaction({ transactions: [repaySafeTxData] })
@@ -224,7 +231,7 @@ async function build_withdraw_transaction(config: any, safe: Safe): Promise<stri
     data: txData,
     operation: OperationType.Call,
     // we need to put the nonce in the future to account for the order presign transaction
-    nonce: config.NONCE + 2,
+    nonce: parseInt(config.NONCE) + 2,
   }
 
   const safeTransaction = await safe.createTransaction({ transactions: [safeTxData] })

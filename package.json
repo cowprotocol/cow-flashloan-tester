@@ -13,6 +13,7 @@
   "dependencies": {
     "@cowprotocol/app-data": "^2.5.1",
     "@cowprotocol/cow-sdk": "^5.10.1-RC.0",
+    "@safe-global/api-kit": "^3.0.1",
     "@safe-global/protocol-kit": "5.2.4",
     "@safe-global/types-kit": "^1.0.4",
     "@types/jest": "^29.5.14",
