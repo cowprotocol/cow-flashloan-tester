@@ -2,23 +2,17 @@ import Safe, { SigningMethod } from '@safe-global/protocol-kit'
 import { OperationType, SafeTransactionDataPartial } from '@safe-global/types-kit'
 import { encodeFunctionData } from 'viem'
 import { SupportedChainId, OrderKind, TradeParameters, TradingSdk, SwapAdvancedSettings, SigningScheme } from '@cowprotocol/cow-sdk'
+import { VoidSigner } from '@ethersproject/abstract-signer'
+import { JsonRpcProvider } from '@ethersproject/providers'
+import * as dotenv from 'dotenv'
 
-const config = {
-  RPC_URL: 'https://sepolia.gateway.tenderly.co',
-  COW_SETTLEMENT_CONTRACT: "0x9008D19f58AAbD9eD0D60971565AA8510560ab41",
-  APP_CODE: 'FlashLoan Test',
-  SIGNER_ADDRESS_PRIVATE_KEY: '0x',
-  SAFE_ADDRESS: '0x',
-  AAVE_POOL_ADDRESS: "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
-  COLLATERAL_TOKEN: "0x",
-  COLLATERAL_AMOUNT: "10000000000",
-  BORROWED_TOKEN: "0x",
-  BORROWED_AMOUNT: "10000000000",
-}
+dotenv.config()
+const config = process.env
 
 async function main() {
   // Create Safe instance
   const safe = await Safe.init({
+    // @ts-ignore
     provider: config.RPC_URL,
     signer: config.SIGNER_ADDRESS_PRIVATE_KEY,
     safeAddress: config.SAFE_ADDRESS,
@@ -41,35 +35,37 @@ async function main() {
         lender: config.AAVE_POOL_ADDRESS,
         token: config.BORROWED_TOKEN,
         amount: config.BORROWED_AMOUNT
-      }
-    },
-    hooks: {
-      pre: [
-        {
-          target: config.SAFE_ADDRESS,
-          value: "0",
-          callData: encoded_replay_tx,
-          gasLimit: "1000000"
-        },
-        {
-          target: config.SAFE_ADDRESS,
-          value: "0",
-          callData: encoded_withdraw_tx,
-          gasLimit: "1000000"
-        }
-      ],
-      "post": []
-    },
-    "signer": config.SAFE_ADDRESS
+      },
+      hooks: {
+        pre: [
+          {
+            target: config.SAFE_ADDRESS,
+            value: "0",
+            callData: encoded_replay_tx,
+            gasLimit: "1000000"
+          },
+          {
+            target: config.SAFE_ADDRESS,
+            value: "0",
+            callData: encoded_withdraw_tx,
+            gasLimit: "1000000"
+          }
+        ],
+        "post": []
+      },
+      signer: config.SAFE_ADDRESS
+    }, 
+    
   };
 
   console.log(JSON.stringify(appData, null, 2));
+
   
   // Initialize the COW SDK
   const sdk = new TradingSdk({
     chainId: SupportedChainId.SEPOLIA,
-    signer: config.SIGNER_ADDRESS_PRIVATE_KEY,
-    appCode: config.APP_CODE,
+    signer: new VoidSigner(config.SAFE_ADDRESS as string, new JsonRpcProvider('https://sepolia.gateway.tenderly.co')),
+    appCode: config.APP_CODE as string,
   });
 
 
@@ -78,11 +74,14 @@ async function main() {
     // @ts-ignore
     env: 'staging',
     kind: OrderKind.BUY,
+    // @ts-ignore
     sellToken: config.COLLATERAL_TOKEN,
-    sellTokenDecimals: 6,
+    sellTokenDecimals: config.COLLATERAL_TOKEN_DECIMALS as unknown as number,
+    // @ts-ignore
     buyToken: config.BORROWED_TOKEN,
-    buyTokenDecimals: 6,
-    amount: config.COLLATERAL_AMOUNT,
+    buyTokenDecimals: config.BORROWED_TOKEN_DECIMALS as unknown as number,
+    // @ts-ignore
+    amount: config.BUY_AMOUNT,
     // receiver is always the settlement contract because the driver takes
     // funds from the settlement contract to pay back the loan
     receiver: config.COW_SETTLEMENT_CONTRACT,
@@ -97,33 +96,21 @@ async function main() {
     },
   });
   console.log({results: quote.quoteResults});
-  
-  const orderId = await quote.postSwapOrderFromQuote();
-  console.log('Order created, id: ', orderId);
 
-  const preSignTransaction = await sdk.getPreSignTransaction({
-    orderId,
-    account: config.SAFE_ADDRESS,
-  });
-  console.log(
-    `Pre-sign unsigned transaction: ${JSON.stringify(
-      preSignTransaction,
-      null,
-      2
-    )}`
-  );
+  console.log({amountsAndCosts: quote.quoteResults.amountsAndCosts});
+  console.log({order: quote.quoteResults.orderToSign});
 
-  const safeTransactionData: SafeTransactionDataPartial = {
-    to: preSignTransaction.to,
-    value: preSignTransaction.value,
-    data: preSignTransaction.data,
-    operation: OperationType.Call
+  const advancedParameters: SwapAdvancedSettings = {
+    quoteRequest: {
+      // Specify the signing scheme
+      signingScheme: SigningScheme.PRESIGN,
+    },
+    // @ts-ignore
+    appData,
   }
-  const safeTransaction = await safe.createTransaction({ transactions: [safeTransactionData] });
-  const signedSafeTransaction = await safe.signTransaction(safeTransaction, SigningMethod.ETH_SIGN);
-  const transactionResult = await safe.executeTransaction(signedSafeTransaction);
 
-  console.log({transactionResult});
+  const orderId = await sdk.postSwapOrder(parameters, advancedParameters);
+  console.log('Order created, id: ', orderId);
 }
 
 async function build_repay_transaction(config: any, safe: Safe): Promise<string> {
@@ -167,7 +154,7 @@ async function build_repay_transaction(config: any, safe: Safe): Promise<string>
     functionName: 'repay',
     args: [
       config.BORROWED_TOKEN,
-      config.BORROWED_TOKEN,
+      config.BORROWED_AMOUNT,
       // interest_rate_mode
       2,
       // on_behalf_of
@@ -179,7 +166,9 @@ async function build_repay_transaction(config: any, safe: Safe): Promise<string>
     to: config.AAVE_POOL_ADDRESS,
     value: '0',
     data: repayTxData,
-    operation: OperationType.Call
+    operation: OperationType.Call,
+    // we need to put the nonce in the future to account for the order presign transaction
+    nonce: config.NONCE + 1,
   }
 
   const safeTransaction = await safe.createTransaction({ transactions: [repaySafeTxData] })
@@ -233,7 +222,9 @@ async function build_withdraw_transaction(config: any, safe: Safe): Promise<stri
     to: config.AAVE_POOL_ADDRESS,
     value: '0',
     data: txData,
-    operation: OperationType.Call
+    operation: OperationType.Call,
+    // we need to put the nonce in the future to account for the order presign transaction
+    nonce: config.NONCE + 2,
   }
 
   const safeTransaction = await safe.createTransaction({ transactions: [safeTxData] })
