@@ -47,7 +47,7 @@ You may need to perform a few trades with the most valuable token of the pair to
 It's also important to know that the amounts to trade must be big enough so the network costs don't skyrocket.
 
 ### 5. Get tokens from the faucet
-Aave tokens can be obtained from the [faucet](https://gho.aave.com/faucet/). Currently this is a manual process (10k tokens per transactions) and very time-consuming.
+Aave tokens can be obtained from the [faucet](https://gho.aave.com/faucet/). Currently this is a manual process (10k tokens per transaction) and very time-consuming.
 
 The faucet site doesn't seem to be able to be connected to Safe using WalletConnect, so we recommend using a regular EOA account to get the tokens and then transfer the needed amounts to the Safe wallet. 
 
