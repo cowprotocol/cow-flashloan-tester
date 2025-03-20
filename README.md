@@ -56,7 +56,7 @@ You will need to deposit enough tokens in Aave so that an big enough amount can 
 ### 6. Create the deposit and borrow in Aave
 In Aave, create a new deposit (`Assets to supply`) with the collateral token and a new borrow (`Assets to borrow`) with the selected borrowed token. This must be done with the Safe wallet.
 
-The deposit and borrow amounts must be bigger/equal than the intended amounts to trade.
+The deposit and borrow amounts must be bigger (or at least equal) than the intended amounts to trade.
 
 At this point you can set up the `COLLATERAL_AMOUNT` and `BORROWED_AMOUNT` environment variables in the `.env` file. Both must be lower or equal than the the corresponding deposit/borrow in Aave, but big enough for the trade to succeed.
 
