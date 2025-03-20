@@ -51,6 +51,13 @@ async function main() {
   });
   console.log({quote: quote.quoteResults.amountsAndCosts});
 
+  const quoteSellAmount = quote.quoteResults.amountsAndCosts.afterSlippage.sellAmount;
+  const maxSellAmount = BigInt(config.COLLATERAL_AMOUNT as string);
+  if(quoteSellAmount > maxSellAmount) {
+    console.log('\nError: cost exceeds the collateral')
+    process.exit(1)
+  }
+
   console.log('\nPublishing the order')
   const advancedParameters: SwapAdvancedSettings = {
     quoteRequest: {
