@@ -31,7 +31,7 @@ For the test, we must select a pair of tokens in Aave:
 Please take into account that in Sepolia, Aave token names may not correspond with the token name in any other dapp, so it's 
 important to check in [Aave's frontend](https://app.aave.com/) the token addresses:
 * The section `Assets to supply` (check the option `Show assets with 0 balance`) will show which tokens can be used as collateral.
-* The section `Assets to borrow` shows which tokens can be borrowed against
+* The section `Assets to borrow` shows which tokens can be borrowed against.
 
 ### 3. Token approvals
 ERC20 token approvals (for both collateral and borrowed tokens) are needed from the Safe wallet to CoW's Vault relayer contract in Sepolia (address: `0xC92E8bdf79f0507f65a392b0ab4667716BFE0110`).
@@ -58,14 +58,14 @@ In Aave, create a new deposit (`Assets to supply`) with the collateral token and
 
 The deposit and borrow amounts must be bigger (or at least equal) than the intended amounts to trade.
 
-At this point you can set up the `COLLATERAL_AMOUNT` and `BORROWED_AMOUNT` environment variables in the `.env` file. Both must be lower or equal than the the corresponding deposit/borrow in Aave, but big enough for the trade to succeed.
+At this point you can set up the `COLLATERAL_AMOUNT` and `BORROWED_AMOUNT` environment variables in the `.env` file. Both must be lower or equal than the corresponding deposit/borrow in Aave, but big enough for the trade to succeed.
 
-Set up the `BUY_AMOUNT` envvar to be a bit higher than the `BORROWED_AMOUNT`, enough to pay for the flashloan fee.
+Set up the `BUY_AMOUNT` envvar to be a bit higher than the `BORROWED_AMOUNT` one, enough to pay for the flashloan fee.
 
 ### 7. Check Aave's withdrawal/borrow availability
-Even if you have a large enough deposit in Aave, there may not be enough tokens available in Aave to withdraw at any moment. Same with borrowing tokens.
+Even if you have a large enough deposit, there may not be enough tokens available in Aave to withdraw at any moment. Same with borrowing tokens.
 
-To check for withdrawal availability, after having deposited the collateral tokens, click on `Your supplies -> Withdraw` to see a preview of the max supply balance. There should be enough tokens for the trade. If there are not enough, you will need to use another account (different than the Safe) to deposit enough funds to raise the max supply balance
+To check for withdrawal availability, after having deposited the collateral tokens, click on `Your supplies -> Withdraw` to see a preview of the max supply balance. There should be enough tokens for the trade. If there are not enough, you will need to use another account (different than the Safe) to deposit enough funds to raise the max supply balance.
     
 For borrowing availability (used in the flashloan itself) is the same process, but under the `Your borrows -> Borrow`. If there are not enough tokens (`BORROWED_AMOUNT`) then you need to use another account to deposit more funds into Aave for that token.
 
