@@ -69,6 +69,10 @@ To check for withdrawal availability, after having deposited the collateral toke
     
 For borrowing availability (used in the flashloan itself) is the same process, but under the `Your borrows -> Borrow`. If there are not enough tokens (`BORROWED_AMOUNT`) then you need to use another account to deposit more funds into Aave for that token.
 
+### 8. Check token supply on Safe
+The settlement process requires the account to have a non-zero amount of the tokens (collateral and borrowed) that are going to be traded.
+
+Make sure to have a small amount of both available in the Safe account, but small enough that the funds for the flashloan are actually neeeded for the trade.
 
 ## Running the test
 
