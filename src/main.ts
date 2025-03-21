@@ -1,7 +1,7 @@
 import Safe, { SafeTransactionOptionalProps, SigningMethod } from '@safe-global/protocol-kit'
 import SafeApiKit from '@safe-global/api-kit'
 import { OperationType, SafeTransactionDataPartial } from '@safe-global/types-kit'
-import { encodeFunctionData } from 'viem'
+import { encodeFunctionData, toBytes } from 'viem'
 import { SupportedChainId, OrderKind, TradeParameters, TradingSdk, SwapAdvancedSettings, SigningScheme } from '@cowprotocol/cow-sdk'
 import { VoidSigner } from '@ethersproject/abstract-signer'
 import { JsonRpcProvider } from '@ethersproject/providers'
@@ -66,22 +66,12 @@ async function main() {
     // @ts-ignore
     appData,
   }
-
   const orderId = await sdk.postSwapOrder(parameters, advancedParameters);
   console.log('    - Order created, id: ', orderId);
 
   console.log('\nSigning the order')
-  // FIXME: Ideally we want the signing to be automated with the "setOrderPresignature" function call below,
-  // but the safe sdk returns errors on transaction creation and execution.
-  // Example of a similar working manual transaction: 0x8a3923219599aac3d411080590a9ea2f9f194ece72fb3fd5bd0c3bdd892dbd39
-  // await setOrderPresignature(config, sdk, safe, orderId);
-
-  console.log('The signing must be done manually from the Safe UI:')
-  console.log('   - "New Transaction" -> "Transaction Builder"')
-  console.log('   - Enter the COW_SETTLEMENT_CONTRACT address: ', config.COW_SETTLEMENT_CONTRACT,)
-  console.log('   - Select the "setPresignature" method')
-  console.log('   - Put the order uid: ', orderId)
-  console.log('   - Execute with 100k gas limit. Execution on sepolia is flaky (404 errors), must retry a few times')
+  let txHash = await setOrderPresignature(config, sdk, safe, orderId);
+  console.log('    - setPreSignature transaction hash: ' + txHash);
 }
 
 async function setupSafe() {
@@ -263,44 +253,48 @@ async function buildWithdrawTransaction(safe: Safe, nonce: number): Promise<stri
   return encodedSafeTransaction;
 }
 
-async function setOrderPresignature(config: any, sdk: TradingSdk, safe: Safe, orderId: string) {
-  const preSignTransaction = await sdk.getPreSignTransaction({
-    orderId,
-    account: config.SAFE_ADDRESS as string,
+async function setOrderPresignature(config: any, _sdk: TradingSdk, safe: Safe, orderId: string) {
+  const presignatureAbi = [{
+    "type": "function",
+    "name": "setPreSignature",
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "orderUid",
+        "type": "bytes"
+    },
+    {
+        "internalType": "bool",
+        "name": "signed",
+        "type": "bool"
+    },
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }];
+
+  const txData = encodeFunctionData({
+    abi: presignatureAbi,
+    functionName: 'setPreSignature',
+    args: [
+      orderId,
+      true,
+    ]
   });
 
   const safeTransactionData: SafeTransactionDataPartial = {
     to: config.COW_SETTLEMENT_CONTRACT as string,
-    value: preSignTransaction.value,
-    data: preSignTransaction.data,
-    operation: OperationType.Call
+    value: '0',
+    data: txData,
+    operation: OperationType.Call,
   }
 
-  // These values work in the Safe UI (Transaction Builder) for the same type of transaction
-  const options = {
-    // FIXME: not sure which of the two gas options (safeTxGas, gas) use here
-    safeTxGas: '200000',
-    gas: 200000n,
-    maxFeePerGas: 241000000n, // 0.26601 Gwei) 
-    maxPriorityFeePerGas: 1000000n // 0.001 Gwei
-  } as SafeTransactionOptionalProps;
-
-  /*
-    FIXME: We are setting the gas limit manually ("gas" option) but the "createTransaction" call below logs an error::
-      Error: cannot estimate gas; transaction may fail or may require manual gas limit [ See: https://links.ethers.org/v5-errors-UNPREDICTABLE_GAS_LIMIT ] (reason="execution reverted", method="estimateGas", transaction={"from":"0x35eD9A9D1122A1544e031Cc92fCC7eA599e28D9C","to":"0x35eD9A9D1122A1544e031Cc92fCC7eA599e28D9C","data":"0xec6cb13f000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000038a83f594602e797a9579096cd92deb6745829cf6a7ae407d80155f86af30b3b4835ed9a9d1122a1544e031cc92fcc7ea599e28d9c67dd36fe0000000000000000","accessList":null}, error={"reason":"processing response error","code":"SERVER_ERROR","body":"{\"id\":44,\"jsonrpc\":\"2.0\",\"error\":{\"code\":3,\"message\":\"execution reverted\"}}","error":{"code":3},"requestBody":"{\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0x35ed9a9d1122a1544e031cc92fcc7ea599e28d9c\",\"to\":\"0x35ed9a9d1122a1544e031cc92fcc7ea599e28d9c\",\"data\":\"0xec6cb13f000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000038a83f594602e797a9579096cd92deb6745829cf6a7ae407d80155f86af30b3b4835ed9a9d1122a1544e031cc92fcc7ea599e28d9c67dd36fe0000000000000000\"}],\"id\":44,\"jsonrpc\":\"2.0\"}","requestMethod":"POST","url":"https://sepolia.gateway.tenderly.co"}, code=UNPREDICTABLE_GAS_LIMIT, version=providers/5.8.0)
-  */
-  const safeTransaction = await safe.createTransaction({ transactions: [safeTransactionData], options });
-
+  const safeTransaction = await safe.createTransaction({ transactions: [safeTransactionData] });
+  console.log({safeTransaction});
   const signedSafeTransaction = await safe.signTransaction(safeTransaction, SigningMethod.ETH_SIGN);
   
-  /*
-    FIXME: Execution fails with:
-      Version: viem@2.23.11 cause: HttpRequestError: HTTP request failed.
-      Status: 429 URL: https://sepolia.gateway.tenderly.co Request body: {"method":"eth_sendRawTransaction","params"....
-      {"code":-32005,"message":"rate limit exceeded"}
-  */
-  const transactionResult = await safe.executeTransaction(signedSafeTransaction, options);
-  console.log('    - Presigned transaction hash: ' + transactionResult.hash);
+  const transactionResult = await safe.executeTransaction(signedSafeTransaction);
+  return transactionResult.hash;
 }
 
 main()

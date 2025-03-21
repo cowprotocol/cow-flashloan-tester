@@ -86,6 +86,8 @@ After all prerequisites are met and all the environment variables set, run the t
 npm run main 
 ```
 
-If everything succeeds, the order UID will be shown, along with instructions to manually set the order presignature using Safe.
+If everything succeeds, the order UID will be shown.
 
 Finally, you can use the [CoW explorer](https://explorer.cow.fi/) to track the order's progress.
+
+If the last step (`"Signing the order"` on the output) fails, please try with a different RPC provider by updating the `RPC_URL`envvar.
