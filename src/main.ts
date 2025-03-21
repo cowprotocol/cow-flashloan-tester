@@ -73,7 +73,7 @@ async function main() {
   console.log('\nSigning the order')
   // FIXME: Ideally we want the signing to be automated with the "setOrderPresignature" function call below,
   // but the safe sdk returns errors on transaction creation and execution.
-  // Example of a similar working manual transaction: 0x9008D19f58AAbD9eD0D60971565AA8510560ab41
+  // Example of a similar working manual transaction: 0x8a3923219599aac3d411080590a9ea2f9f194ece72fb3fd5bd0c3bdd892dbd39
   // await setOrderPresignature(config, sdk, safe, orderId);
 
   console.log('The signing must be done manually from the Safe UI:')
