@@ -294,7 +294,6 @@ async function setOrderPresignature(config: any, safe: Safe, orderId: string) {
   }
 
   const safeTransaction = await safe.createTransaction({ transactions: [safeTransactionData] });
-  console.log({ safeTransaction });
   const signedSafeTransaction = await safe.signTransaction(safeTransaction, SigningMethod.ETH_SIGN);
 
   const transactionResult = await safe.executeTransaction(signedSafeTransaction);
