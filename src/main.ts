@@ -12,65 +12,17 @@ const config = process.env
 
 async function main() {
   console.log('\nSetting up Safe')
-  const {safe, nonce} = await setupSafe();
+  const { safe, nonce } = await setupSafe();
 
   console.log('\nBuilding order appData')
   const appData = await buildAppData(safe, nonce);
-  
-  // Setup CoW SDK
-  const sdk = new TradingSdk({
-    chainId: SupportedChainId.SEPOLIA,
-    signer: new VoidSigner(config.SAFE_ADDRESS as string, new JsonRpcProvider(config.RPC_URL)),
-    appCode: config.APP_CODE as string,
-  });
-
-  // Define trade parameters
-  const parameters: TradeParameters = {
-    // @ts-ignore
-    env: 'staging',
-    kind: OrderKind.BUY,
-    // @ts-ignore
-    sellToken: config.COLLATERAL_TOKEN,
-    sellTokenDecimals: config.COLLATERAL_TOKEN_DECIMALS as unknown as number,
-    // @ts-ignore
-    buyToken: config.BORROWED_TOKEN,
-    buyTokenDecimals: config.BORROWED_TOKEN_DECIMALS as unknown as number,
-    // @ts-ignore
-    amount: config.BUY_AMOUNT,
-    // receiver is always the settlement contract because the driver takes
-    // funds from the settlement contract to pay back the loan
-    receiver: config.COW_SETTLEMENT_CONTRACT,
-  }
-
-  console.log('\nGetting a quote for the trade')
-  const quote = await sdk.getQuote(parameters, {
-    quoteRequest: {
-      from: config.SAFE_ADDRESS,
-      signingScheme: SigningScheme.PRESIGN,      
-    },
-  });
-  console.log({quote: quote.quoteResults.amountsAndCosts});
-
-  const quoteSellAmount = quote.quoteResults.amountsAndCosts.afterSlippage.sellAmount;
-  const maxSellAmount = BigInt(config.COLLATERAL_AMOUNT as string);
-  if(quoteSellAmount > maxSellAmount) {
-    console.log('\nError: cost exceeds the collateral')
-    process.exit(1)
-  }
 
   console.log('\nPublishing the order')
-  const advancedParameters: SwapAdvancedSettings = {
-    quoteRequest: {
-      signingScheme: SigningScheme.PRESIGN,
-    },
-    // @ts-ignore
-    appData,
-  }
-  const orderId = await sdk.postSwapOrder(parameters, advancedParameters);
+  const orderId = await publishOrder(config, appData);
   console.log('    - Order created, id: ', orderId);
 
   console.log('\nSigning the order')
-  let txHash = await setOrderPresignature(config, sdk, safe, orderId);
+  const txHash = await setOrderPresignature(config, safe, orderId);
   console.log('    - setPreSignature transaction hash: ' + txHash);
 }
 
@@ -91,7 +43,7 @@ async function setupSafe() {
   const nonce = parseInt(nonceString);
   console.log('    - Current safe nonce: ', nonce);
 
-  return {safe, nonce}
+  return { safe, nonce }
 }
 
 async function buildAppData(safe: Safe, nonce: number) {
@@ -128,8 +80,8 @@ async function buildAppData(safe: Safe, nonce: number) {
         "post": []
       },
       signer: config.SAFE_ADDRESS
-    }, 
-    
+    },
+
   };
 
   return appData;
@@ -253,7 +205,59 @@ async function buildWithdrawTransaction(safe: Safe, nonce: number): Promise<stri
   return encodedSafeTransaction;
 }
 
-async function setOrderPresignature(config: any, _sdk: TradingSdk, safe: Safe, orderId: string) {
+async function publishOrder(config: any, appData: any): Promise<string> {
+  // Setup CoW SDK
+  const sdk = new TradingSdk({
+    chainId: SupportedChainId.SEPOLIA,
+    signer: new VoidSigner(config.SAFE_ADDRESS as string, new JsonRpcProvider(config.RPC_URL)),
+    appCode: config.APP_CODE as string,
+  });
+
+  // Define trade parameters
+  const parameters: TradeParameters = {
+    // @ts-ignore
+    env: 'staging',
+    kind: OrderKind.BUY,
+    // @ts-ignore
+    sellToken: config.COLLATERAL_TOKEN,
+    sellTokenDecimals: config.COLLATERAL_TOKEN_DECIMALS as unknown as number,
+    // @ts-ignore
+    buyToken: config.BORROWED_TOKEN,
+    buyTokenDecimals: config.BORROWED_TOKEN_DECIMALS as unknown as number,
+    // @ts-ignore
+    amount: config.BUY_AMOUNT,
+    // receiver is always the settlement contract because the driver takes
+    // funds from the settlement contract to pay back the loan
+    receiver: config.COW_SETTLEMENT_CONTRACT,
+  }
+
+  // Get a quote for the trade to check that
+  const quote = await sdk.getQuote(parameters, {
+    quoteRequest: {
+      from: config.SAFE_ADDRESS,
+      signingScheme: SigningScheme.PRESIGN,
+    },
+  });
+  const quoteSellAmount = quote.quoteResults.amountsAndCosts.afterSlippage.sellAmount;
+  const maxSellAmount = BigInt(config.COLLATERAL_AMOUNT as string);
+  if (quoteSellAmount > maxSellAmount) {
+    console.log('\nError: cost exceeds the collateral')
+    process.exit(1)
+  }
+
+  const advancedParameters: SwapAdvancedSettings = {
+    quoteRequest: {
+      signingScheme: SigningScheme.PRESIGN,
+    },
+    // @ts-ignore
+    appData,
+  }
+  const orderId = await sdk.postSwapOrder(parameters, advancedParameters);
+
+  return orderId;
+}
+
+async function setOrderPresignature(config: any, safe: Safe, orderId: string) {
   const presignatureAbi = [{
     "type": "function",
     "name": "setPreSignature",
@@ -262,12 +266,12 @@ async function setOrderPresignature(config: any, _sdk: TradingSdk, safe: Safe, o
         "internalType": "bytes",
         "name": "orderUid",
         "type": "bytes"
-    },
-    {
+      },
+      {
         "internalType": "bool",
         "name": "signed",
         "type": "bool"
-    },
+      },
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -290,9 +294,9 @@ async function setOrderPresignature(config: any, _sdk: TradingSdk, safe: Safe, o
   }
 
   const safeTransaction = await safe.createTransaction({ transactions: [safeTransactionData] });
-  console.log({safeTransaction});
+  console.log({ safeTransaction });
   const signedSafeTransaction = await safe.signTransaction(safeTransaction, SigningMethod.ETH_SIGN);
-  
+
   const transactionResult = await safe.executeTransaction(signedSafeTransaction);
   return transactionResult.hash;
 }
