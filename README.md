@@ -1,7 +1,7 @@
 # CoW Swap Flash Loan Tester
 This project provides a semi-automatic way of testing [Cow Swap](https://swap.cow.fi/) Flash Loan functionality.
 
-##  Prerequisites (all networks)
+## Prerequisites (all networks)
 
 ### Set up the environment variable file 
 The project uses [dotenv](https://github.com/motdotla/dotenv#readme).
@@ -43,7 +43,7 @@ Set up the `BUY_AMOUNT` envvar to be a bit higher than the `BORROWED_AMOUNT` one
 ### Check token supply on Safe
 The settlement process requires the account to have a non-zero amount of the tokens that are going to be traded. For the flashloan setup this means you need to make sure to have a small amount of the collateral token on the Safe account, but also small enough that the funds for the flashloan are actually needed for the trade.
 
-##  Extra prerequisites for Sepolia
+## Extra prerequisites for Sepolia
 On Sepolia we need to be aware of some extra prerequisites on top of the previously disscussed ones.
 
 ### Check token addresses in Aaave
