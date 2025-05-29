@@ -208,7 +208,7 @@ async function buildWithdrawTransaction(safe: Safe, nonce: number): Promise<stri
 async function publishOrder(config: any, appData: any): Promise<string> {
   // Setup CoW SDK
   const sdk = new TradingSdk({
-    chainId: SupportedChainId.SEPOLIA,
+    chainId: config.CHAIN_ID,
     signer: new VoidSigner(config.SAFE_ADDRESS as string, new JsonRpcProvider(config.RPC_URL)),
     appCode: config.APP_CODE as string,
   });
@@ -216,7 +216,7 @@ async function publishOrder(config: any, appData: any): Promise<string> {
   // Define trade parameters
   const parameters: TradeParameters = {
     // @ts-ignore
-    env: 'staging',
+    env: config.COW_ENVIRONMENT,
     kind: OrderKind.BUY,
     // @ts-ignore
     sellToken: config.COLLATERAL_TOKEN,
