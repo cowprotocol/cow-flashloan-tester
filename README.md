@@ -5,7 +5,7 @@ This project provides a semi-automatic way of testing [Cow Swap](https://swap.co
 
 ### Set up the environment variable file 
 The project uses [dotenv](https://github.com/motdotla/dotenv#readme).
-Copy the `.env.example` file into `.env` in the root folder of the project:
+Copy the corresponding `.env.{network}-example` file (we have both `sepolia` and `mainnet` examples) into `.env` in the root folder of the project:
 ```console
 cp .env.example .env
 ```
@@ -28,8 +28,11 @@ For the test, we must select a pair of tokens in Aave:
 * The other token will be borrowed (envvars  `BORROWED_TOKEN` and `BORROWED_TOKEN_DECIMALS`).
 
 ### Token approvals
-ERC20 token approvals (for both collateral and borrowed tokens) are needed from the Safe wallet to CoW's Vault relayer contract in the target network (address: `0xC92E8bdf79f0507f65a392b0ab4667716BFE0110`).
-For convenience it's recommended to set up max values for the approval.
+We need the following ERC20 token approvals from the Safe wallet:
+* Collateral tokens to CoW's Vault relayer contract in the target network (address: `0xC92E8bdf79f0507f65a392b0ab4667716BFE0110`).
+* Borrowed tokens to the flashloan lender contract (e.g. for Aave it would be address: `0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2`).
+
+For testing convenience it's recommended to set up max values for the approvals.
 
 ### Create the deposit and borrow in Aave
 In Aave, create a new deposit (`Assets to supply`) with the collateral token and a new borrow (`Assets to borrow`) with the selected borrowed token. This must be done with the Safe wallet.
@@ -43,7 +46,7 @@ Set up the `BUY_AMOUNT` envvar to be a bit higher than the `BORROWED_AMOUNT` one
 ### Check token supply on Safe
 The settlement process requires the account to have a non-zero amount of the tokens that are going to be traded. For the flashloan setup this means you need to make sure to have a small amount of the collateral token on the Safe account, but also small enough that the funds for the flashloan are actually needed for the trade.
 
-## Extra prerequisites for Sepolia
+## Extra prerequisites for Sepolia
 On Sepolia we need to be aware of some extra prerequisites on top of the previously disscussed ones.
 
 ### Check token addresses in Aaave
